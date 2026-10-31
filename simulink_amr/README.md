@@ -15,7 +15,7 @@ build_scout_amr_model                     % rebuild scout_amr_sim.slx from scrat
 ```
 A full mission takes about 30 s to 1 min of wall time. Figures go to `results/`.
 
-Presentation outputs (trajectory map, signals figure, GIF/MP4 animation) come from `make_example_style_outputs`; the report is built in `report/` (`python build_report.py`). The older script-only visual simulation is `../simulate_industry_amr_warehouse.m`.
+Presentation outputs (trajectory map, signals figure, MP4 animation) come from `make_example_style_outputs`. The older script-only visual simulation is `../simulate_industry_amr_warehouse.m` (with `../plan_warehouse_roadmap.m`).
 
 ## Architecture
 
