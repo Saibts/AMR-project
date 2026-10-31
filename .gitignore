@@ -11,3 +11,4 @@ slprj/
 *.slxc
 __pycache__/
 simulink_amr/results/amr_warehouse_avoidance.gif
+simulink_amr/report/report_pass*
