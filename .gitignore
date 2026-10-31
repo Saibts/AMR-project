@@ -1,0 +1,13 @@
+# nested repos / other documents kept locally only
+scout_mini_sw/
+scout_mini_jazzy/
+AgileX_Scout_Mini_Industrial_AMR_Presentation.*
+AgileX_Scout_Mini_Sensor_Architecture_Report.docx
+generate_amr_presentation.m
+make_word_report.py
+# MATLAB / Simulink caches
+slprj/
+*.autosave
+*.slxc
+__pycache__/
+simulink_amr/results/amr_warehouse_avoidance.gif

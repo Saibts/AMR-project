@@ -1,0 +1,542 @@
+<?xml version="1.0" encoding="utf-8"?>
+<robot name="assem2_robot">
+
+  <!-- Base Footprint (Ground Projection Root Link) -->
+  <link name="base_footprint" />
+
+  <!-- Fixed joint aligning physical CAD chassis front with ROS REP-103 (+X is Forward, +Y is Left) -->
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint" />
+    <child link="base_link" />
+    <origin xyz="-0.10185 0.16662 0.2269" rpy="0 0 1.5707963" />
+  </joint>
+
+  <!-- Base Link (Chassis) -->
+  <link name="base_link">
+    <inertial>
+      <!-- Low Center of Mass located at bottom chassis (Z ~ 0.10m in footprint) for high roll/pitch stability -->
+      <origin xyz="-0.16662 -0.10185 -0.12" rpy="0 0 0" />
+      <mass value="22.0" />
+      <inertia ixx="0.35" ixy="0.0" ixz="0.0" iyy="0.45" iyz="0.0" izz="0.65" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/base_link.STL" />
+      </geometry>
+      <material name="metallic_blue">
+        <color rgba="0.2 0.3 0.6 1.0" />
+      </material>
+    </visual>
+    <collision>
+      <!-- Smooth analytical box collision elevated above ground eliminates mesh-vertex snagging -->
+      <origin xyz="-0.16662 -0.10185 0.0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.48 0.32 0.16" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Wheel 1: Front Left in physical ROS heading (w1) -->
+  <link name="w1">
+    <inertial>
+      <origin xyz="0.062 0 0" rpy="0 0 0" />
+      <mass value="1.5" />
+      <inertia ixx="0.005" ixy="0" ixz="0" iyy="0.003" iyz="0" izz="0.003" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/w1.STL" />
+      </geometry>
+      <material name="dark_rubber">
+        <color rgba="0.15 0.15 0.15 1.0" />
+      </material>
+    </visual>
+    <!-- Smooth analytical cylinder collision prevents mesh-vertex snagging against obstacles -->
+    <collision>
+      <origin xyz="0.062 0 0" rpy="0 1.5707963 0" />
+      <geometry>
+        <cylinder radius="0.08" length="0.06" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="j1" type="continuous">
+    <origin xyz="0.13938 -0.29727 -0.14629" rpy="2.33386 0 0" />
+    <parent link="base_link" />
+    <child link="w1" />
+    <axis xyz="1 0 0" />
+    <dynamics damping="0.1" friction="0.1" />
+    <limit effort="40" velocity="25" />
+  </joint>
+
+  <!-- Wheel 2: Rear Left in physical ROS heading (w2) -->
+  <link name="w2">
+    <inertial>
+      <origin xyz="0.062 0 0" rpy="0 0 0" />
+      <mass value="1.5" />
+      <inertia ixx="0.005" ixy="0" ixz="0" iyy="0.003" iyz="0" izz="0.003" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/w2.STL" />
+      </geometry>
+      <material name="dark_rubber">
+        <color rgba="0.15 0.15 0.15 1.0" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.062 0 0" rpy="0 1.5707963 0" />
+      <geometry>
+        <cylinder radius="0.08" length="0.06" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="j2" type="continuous">
+    <origin xyz="0.13938 0.09368 -0.14742" rpy="2.56241 0 0" />
+    <parent link="base_link" />
+    <child link="w2" />
+    <axis xyz="1 0 0" />
+    <dynamics damping="0.1" friction="0.1" />
+    <limit effort="40" velocity="25" />
+  </joint>
+
+  <!-- Wheel 3: Front Right in physical ROS heading (w3) -->
+  <link name="w3">
+    <inertial>
+      <origin xyz="0.062 0 0" rpy="0 0 0" />
+      <mass value="1.5" />
+      <inertia ixx="0.005" ixy="0" ixz="0" iyy="0.003" iyz="0" izz="0.003" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/w3.STL" />
+      </geometry>
+      <material name="dark_rubber">
+        <color rgba="0.15 0.15 0.15 1.0" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.062 0 0" rpy="0 1.5707963 0" />
+      <geometry>
+        <cylinder radius="0.08" length="0.06" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="j3" type="continuous">
+    <origin xyz="-0.47262 -0.29727 -0.14629" rpy="-2.87166 0 3.14159" />
+    <parent link="base_link" />
+    <child link="w3" />
+    <axis xyz="-1 0 0" />
+    <dynamics damping="0.1" friction="0.1" />
+    <limit effort="40" velocity="25" />
+  </joint>
+
+  <!-- Wheel 4: Rear Right in physical ROS heading (w4) -->
+  <link name="w4">
+    <inertial>
+      <origin xyz="0.062 0 0" rpy="0 0 0" />
+      <mass value="1.5" />
+      <inertia ixx="0.005" ixy="0" ixz="0" iyy="0.003" iyz="0" izz="0.003" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/w4.STL" />
+      </geometry>
+      <material name="dark_rubber">
+        <color rgba="0.15 0.15 0.15 1.0" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.062 0 0" rpy="0 1.5707963 0" />
+      <geometry>
+        <cylinder radius="0.08" length="0.06" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="j4" type="continuous">
+    <origin xyz="-0.47262 0.09348 -0.14780" rpy="-1.29916 0 3.14159" />
+    <parent link="base_link" />
+    <child link="w4" />
+    <axis xyz="-1 0 0" />
+    <dynamics damping="0.1" friction="0.1" />
+    <limit effort="40" velocity="25" />
+  </joint>
+
+  <!-- Gazebo Simulation Plugins (Gazebo Harmonic / Gz Sim) -->
+  <gazebo>
+    <!-- DiffDrive plugin for 4-wheel differential/skid-steer drive -->
+    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <!-- Left side wheels (j1=Front Left, j2=Rear Left) -->
+      <left_joint>j1</left_joint>
+      <left_joint>j2</left_joint>
+      <!-- Right side wheels (j3=Front Right, j4=Rear Right) -->
+      <right_joint>j3</right_joint>
+      <right_joint>j4</right_joint>
+      <wheel_separation>0.612</wheel_separation>
+      <wheel_radius>0.08</wheel_radius>
+      <max_linear_acceleration>4.0</max_linear_acceleration>
+      <min_linear_acceleration>-4.0</min_linear_acceleration>
+      <max_angular_acceleration>6.0</max_angular_acceleration>
+      <min_angular_acceleration>-6.0</min_angular_acceleration>
+      <max_linear_velocity>2.5</max_linear_velocity>
+      <min_linear_velocity>-2.5</min_linear_velocity>
+      <max_angular_velocity>3.5</max_angular_velocity>
+      <min_angular_velocity>-3.5</min_angular_velocity>
+      <topic>/cmd_vel</topic>
+      <odom_topic>/odom</odom_topic>
+      <tf_topic>/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
+      <odom_publish_frequency>50</odom_publish_frequency>
+      <cmd_vel_timeout>0.5</cmd_vel_timeout>
+    </plugin>
+
+    <!-- Joint state publisher plugin -->
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <topic>/joint_states</topic>
+      <update_rate>50</update_rate>
+      <joint_name>j1</joint_name>
+      <joint_name>j2</joint_name>
+      <joint_name>j3</joint_name>
+      <joint_name>j4</joint_name>
+    </plugin>
+  </gazebo>
+
+  <!-- Wheel Surface & Contact Friction in Gazebo -->
+  <gazebo reference="w1">
+    <mu1>0.25</mu1>
+    <mu2>0.25</mu2>
+    <kp>1000000.0</kp>
+    <kd>100.0</kd>
+    <minDepth>0.001</minDepth>
+  </gazebo>
+  <gazebo reference="w2">
+    <mu1>0.25</mu1>
+    <mu2>0.25</mu2>
+    <kp>1000000.0</kp>
+    <kd>100.0</kd>
+    <minDepth>0.001</minDepth>
+  </gazebo>
+  <gazebo reference="w3">
+    <mu1>0.25</mu1>
+    <mu2>0.25</mu2>
+    <kp>1000000.0</kp>
+    <kd>100.0</kd>
+    <minDepth>0.001</minDepth>
+  </gazebo>
+  <gazebo reference="w4">
+    <mu1>0.25</mu1>
+    <mu2>0.25</mu2>
+    <kp>1000000.0</kp>
+    <kd>100.0</kd>
+    <minDepth>0.001</minDepth>
+  </gazebo>
+
+  <!-- ================================================================= -->
+  <!-- SENSORS ATTACHMENTS & GAZEBO HARMONIC SENSOR CONFIGURATIONS       -->
+  <!-- ================================================================= -->
+
+  <!-- 1. 2D LiDAR Sensor (LaserScan) -->
+  <link name="lidar_mount_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.08" />
+      <inertia ixx="0.00005" ixy="0" ixz="0" iyy="0.00005" iyz="0" izz="0.00005" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.015" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.045" length="0.03" />
+      </geometry>
+      <material name="mount_metal">
+        <color rgba="0.25 0.25 0.25 1.0" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.015" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.045" length="0.03" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="lidar_mount_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="lidar_mount_link" />
+    <!-- Top center deck of Scout Mini (X=0, Y=0 in footprint, Z~0.33m) -->
+    <origin xyz="-0.16662 -0.10185 0.105" rpy="0 0 -1.5707963" />
+  </joint>
+
+  <link name="lidar_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.125" />
+      <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001" />
+    </inertial>
+    <visual>
+      <!-- Base cylinder -->
+      <origin xyz="0 0 0.01" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.038" length="0.02" />
+      </geometry>
+      <material name="lidar_dark">
+        <color rgba="0.12 0.12 0.15 1.0" />
+      </material>
+    </visual>
+    <visual>
+      <!-- Top rotating optical turret -->
+      <origin xyz="0 0 0.025" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.035" length="0.015" />
+      </geometry>
+      <material name="lidar_optic">
+        <color rgba="0.05 0.05 0.08 0.95" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.02" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.04" length="0.04" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="lidar_joint" type="fixed">
+    <parent link="lidar_mount_link" />
+    <child link="lidar_link" />
+    <!-- Elevated optical plane (Z ~ 0.38m from ground) with unobstructed 360-deg FOV -->
+    <origin xyz="0 0 0.03" rpy="0 0 0" />
+  </joint>
+
+  <gazebo reference="lidar_link">
+    <sensor name="lidar" type="gpu_lidar">
+      <pose relative_to="lidar_link">0 0 0.02 0 0 0</pose>
+      <always_on>true</always_on>
+      <visualize>true</visualize>
+      <update_rate>20</update_rate>
+      <topic>/scan</topic>
+      <gz_frame_id>lidar_link</gz_frame_id>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>720</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159265</min_angle>
+            <max_angle>3.14159265</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.12</min>
+          <max>16.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </lidar>
+    </sensor>
+  </gazebo>
+
+  <!-- 2. IMU Sensor (Inertial Measurement Unit) -->
+  <link name="imu_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.01" />
+      <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.025 0.025 0.01" />
+      </geometry>
+      <material name="imu_orange">
+        <color rgba="0.95 0.45 0.1 1.0" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="imu_link" />
+    <!-- Centered near the robot Center of Mass (CoM) for minimal lever-arm error -->
+    <origin xyz="-0.16662 -0.10185 0.02" rpy="0 0 -1.5707963" />
+  </joint>
+
+  <gazebo reference="imu_link">
+    <sensor name="imu_sensor" type="imu">
+      <pose relative_to="imu_link">0 0 0 0 0 0</pose>
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <visualize>true</visualize>
+      <topic>/imu</topic>
+      <gz_frame_id>imu_link</gz_frame_id>
+      <imu>
+        <angular_velocity>
+          <x>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>0.0002</stddev>
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>0.0002</stddev>
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>0.0002</stddev>
+            </noise>
+          </z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>0.017</stddev>
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>0.017</stddev>
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>0.017</stddev>
+            </noise>
+          </z>
+        </linear_acceleration>
+      </imu>
+    </sensor>
+  </gazebo>
+
+  <!-- 3. RGB-D / Depth Camera (RealSense Style Forward Perception) -->
+  <link name="camera_mount_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.04" />
+      <inertia ixx="0.00002" ixy="0" ixz="0" iyy="0.00002" iyz="0" izz="0.00002" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.03 0.08 0.01" />
+      </geometry>
+      <material name="bracket_metal">
+        <color rgba="0.3 0.3 0.35 1.0" />
+      </material>
+    </visual>
+  </link>
+
+  <joint name="camera_mount_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="camera_mount_link" />
+    <!-- Physical front bumper deck mounting location (+X forward in footprint) -->
+    <origin xyz="-0.16662 -0.355 0.065" rpy="0 0 -1.5707963" />
+  </joint>
+
+  <link name="camera_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.07" />
+      <inertia ixx="0.00005" ixy="0" ixz="0" iyy="0.00005" iyz="0" izz="0.00005" />
+    </inertial>
+    <!-- Camera main body -->
+    <visual>
+      <origin xyz="0 0 0.0125" rpy="0 0 0" />
+      <geometry>
+        <box size="0.025 0.09 0.025" />
+      </geometry>
+      <material name="camera_dark">
+        <color rgba="0.1 0.1 0.1 1.0" />
+      </material>
+    </visual>
+    <!-- Left Optical Lens -->
+    <visual>
+      <origin xyz="0.013 -0.025 0.0125" rpy="0 1.5707963 0" />
+      <geometry>
+        <cylinder radius="0.006" length="0.003" />
+      </geometry>
+      <material name="lens_glass">
+        <color rgba="0.0 0.5 0.8 0.9" />
+      </material>
+    </visual>
+    <!-- Right Optical Lens -->
+    <visual>
+      <origin xyz="0.013 0.025 0.0125" rpy="0 1.5707963 0" />
+      <geometry>
+        <cylinder radius="0.006" length="0.003" />
+      </geometry>
+      <material name="lens_glass">
+        <color rgba="0.0 0.5 0.8 0.9" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.0125" rpy="0 0 0" />
+      <geometry>
+        <box size="0.025 0.09 0.025" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="camera_joint" type="fixed">
+    <parent link="camera_mount_link" />
+    <child link="camera_link" />
+    <!-- Front chassis mount facing forward (+X in ROS base_footprint) -->
+    <origin xyz="0 0 0.01" rpy="0 0 0" />
+  </joint>
+
+  <!-- Standard ROS Optical Coordinate Frame (Z-forward, X-right, Y-down) -->
+  <link name="camera_optical_frame" />
+
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="camera_link" />
+    <child link="camera_optical_frame" />
+    <origin xyz="0.013 0 0.0125" rpy="-1.5707963 0 -1.5707963" />
+  </joint>
+
+  <gazebo reference="camera_link">
+    <sensor name="camera" type="rgbd_camera">
+      <pose relative_to="camera_link">0.013 0 0.0125 0 0 0</pose>
+      <always_on>true</always_on>
+      <visualize>true</visualize>
+      <update_rate>30</update_rate>
+      <topic>/camera</topic>
+      <gz_frame_id>camera_optical_frame</gz_frame_id>
+      <camera>
+        <horizontal_fov>1.3962634</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.1</near>
+          <far>10.0</far>
+        </clip>
+        <depth_camera>
+          <clip>
+            <near>0.1</near>
+            <far>10.0</far>
+          </clip>
+        </depth_camera>
+      </camera>
+    </sensor>
+  </gazebo>
+
+</robot>
