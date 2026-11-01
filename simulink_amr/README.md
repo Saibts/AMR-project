@@ -13,7 +13,7 @@ run_scout_warehouse_simulation            % run + all graphs  (add (false) to sk
 run_scout_warehouse_simulation(false,true)% also re-run with slip management OFF and compare (slow)
 build_scout_amr_model                     % rebuild scout_amr_sim.slx from scratch
 ```
-A full mission takes about 30 s to 1 min of wall time. Figures go to `results/`.
+A full mission takes about 1 to 2 minutes of wall time (the slip-management-off run is faster). Figures go to `results/`.
 
 Presentation outputs (trajectory map, signals figure, MP4 animation) come from `make_example_style_outputs`. The older script-only visual simulation is `../simulate_industry_amr_warehouse.m` (with `../plan_warehouse_roadmap.m`).
 
