@@ -154,7 +154,7 @@ function plotSnapshots(r, P)
     ir = find(diff(r.lg(:,38)) > 0, 1); if isempty(ir), [~, ir] = min(abs(r.t - r.t(end)*0.7)); end         % first route correction
     d2 = hypot(interp1(r.tm, r.mv(:,3), r.t) - r.lg(:,1), interp1(r.tm, r.mv(:,4), r.t) - r.lg(:,2));
     [~, i2] = min(d2);                                                                                         % closest to worker 2
-    idx = [ib ih ir i2]; ttl = {'avoiding the floor box', 'worker crossing the aisle', 'aisle blocked: re-route', 'worker in aisle 3'};
+    idx = [ib ih ir i2]; ttl = {'avoiding the floor box', 'worker crossing the aisle', 'first re-route: path blocked', 'worker in aisle 3'};
     f = figure('Name', 'LiDAR snapshots', 'Theme', 'light', 'Color', 'w', 'Position', [110 110 1400 800]);
     for s = 1:4
         ax = subplot(2,2,s); drawMap(ax, P); i = idx(s); t0 = r.t(i);
