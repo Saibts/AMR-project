@@ -13,7 +13,7 @@ run_scout_warehouse_simulation            % run + all graphs  (add (false) to sk
 run_scout_warehouse_simulation(false,true)% also re-run with slip management OFF and compare (slow)
 build_scout_amr_model                     % rebuild scout_amr_sim.slx from scratch
 ```
-A full mission takes about 1 to 2 minutes of wall time (the slip-management-off run is faster). Figures go to `results/`.
+A full mission takes about 2 to 3 minutes of wall time with slip management on (1 to 2 minutes for the off run). Figures go to `results/`.
 
 Presentation outputs (trajectory map, signals figure, MP4 animation) come from `make_example_style_outputs`. The older script-only visual simulation is `../simulate_industry_amr_warehouse.m` (with `../plan_warehouse_roadmap.m`).
 
@@ -29,6 +29,7 @@ Presentation outputs (trajectory map, signals figure, MP4 animation) come from `
 | Planner | A* on an inflated occupancy grid (racks/walls known; boxes, workers and the truck only learned from LiDAR), line-of-sight smoothing, replan every 0.5 s or when the path is blocked | `scout_wh_plan.m`, `scout_wh_nav.m` |
 | Navigation | Mission state machine (start -> pickup -> load 3 s -> delivery -> unload 3 s), pure pursuit, LiDAR repulsion, stop-before-contact speed limit, back-away behaviour | `scout_wh_nav.m` |
 | Drive control | Skid-steer kinematics, wheel-speed PI with acceleration feed-forward, traction control (slip-ratio window, torque limiting, friction estimator) | `scout_amr_controller.m` |
+| Motor / battery | 4 x 150 W hub motors, 24 V 15 Ah battery. Torque-speed limit `min(15 N m, Kt (V - Ke w) / R)` acts on every wheel in the controller; current, power, battery voltage and charge are calculated from the logged torques; hand calculation of the driving cases and the grip limit | `scout_amr_params.m`, `scout_amr_drive_sizing.m`, `scout_amr_drive_post.m` |
 | Monitoring | Ground-truth clearance and collision counter (not used by the controller) | `scout_wh_nav.m` |
 | Parameters | All constants and the warehouse layout | `scout_amr_params.m` |
 
@@ -46,8 +47,9 @@ Inside the controller subsystem, the `tc_on` constant switches slip management (
 
 ## Results of the reference run (slip management ON)
 
-Mission time 49.6 s, 32 m driven, 3 route corrections, **0 collisions**, minimum clearance 0.22 m,
-peak slip ratio 0.48 (on the oil and water spills), top speed 1.2 m/s.
+Mission time 51.5 s, 32.5 m driven, 5 route corrections, **0 collisions**, minimum clearance 0.12 m,
+peak slip ratio 0.46 (on the oil and water spills), top speed 1.2 m/s. Peak wheel torque 5.9 N m (rated 5 N m, peak 15 N m),
+1.06 Wh taken from the 360 Wh battery.
 
 | Figure | Content |
 |---|---|
@@ -56,6 +58,10 @@ peak slip ratio 0.48 (on the oil and water spills), top speed 1.2 m/s.
 | `results/3_perception_safety.png` | LiDAR ranges, clearance, collisions, re-routes |
 | `results/4_slip_management.png` | Slip ratios, torques, friction estimate vs truth, tyre loads |
 | `results/5_lidar_scenarios.png` | LiDAR scans and replanned path at the four demonstration moments |
+| `results/7_motor_battery.png` | Motor torque-speed limit with the run's operating points, motor current, battery power, voltage and charge |
+| `results/8_drive_design_cases.png` | Hand-calculated driving cases on the motor torque-speed limit, with the grip limits of the three floors |
+
+`scout_amr_drive_sizing` prints the sizing tables (force, torque, current, traction demand per case). The drive calculations are Section 17 of the report.
 
 ## Honest limitations
 

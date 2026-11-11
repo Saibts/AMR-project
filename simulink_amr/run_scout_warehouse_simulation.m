@@ -10,7 +10,7 @@ here = fileparts(mfilename('fullpath')); cd(here); addpath(here);
 P = scout_amr_params(); mdl = 'scout_amr_sim';
 if ischar(showExplorer) && strcmp(showExplorer, 'replot')      % re-draw the figures from the saved results
     L = load(fullfile('results', 'scout_warehouse_results.mat')); R = L.R; main = R(2).r;
-    plotWarehouse(main, P); plotKinematics(main, P); plotSafety(main, P); plotSlip(main, P); plotSnapshots(main, P);
+    plotWarehouse(main, P); plotKinematics(main, P); plotSafety(main, P); plotSlip(main, P); plotSnapshots(main, P); plotDrive(main, P);
     printSummary(main, P); return
 end
 if ~isfile([mdl '.slx']), build_scout_amr_model; end
@@ -46,8 +46,10 @@ plotKinematics(main, P);
 plotSafety(main, P);
 plotSlip(main, P);
 plotSnapshots(main, P);
+plotDrive(main, P);
 if compareSlip, plotCompare(R(2).r, R(1).r, P); end
 printSummary(main, P);
+scout_amr_drive_sizing;
 end
 
 function s = onoff(m), if m, s = 'ON'; else, s = 'OFF'; end, end
@@ -144,6 +146,39 @@ function plotSlip(r, P)
     subplot(2,2,4); for k = 1:4, plot(r.tt, r.tl(:, 11*(k-1)+7), 'Color', wc(k,:)); hold on; end
     ylabel('normal load [N]'); xlabel('time [s]'); grid on; title('Tyre normal loads');
     sgtitle('Wheel-ground interaction and slip management'); save_fig(f, '4_slip_management.png');
+end
+
+function plotDrive(r, P)
+    % Motor torque-speed limit with the operating points of the run, current, power and battery (report Section 8)
+    D = scout_amr_drive_post(r.t, r.lg, P); S = scout_amr_drive_sizing(false); t = r.t; wc = lines(4);
+    f = figure('Name', 'Motor and battery', 'Theme', 'light', 'Color', 'w', 'Position', [150 150 1250 780]);
+    subplot(2,2,1); w = linspace(0, P.Vbus/P.kt, 300);
+    plot(w, min(P.tmax, P.kt*(P.Vbus - P.kt*w)/P.Rm), 'k-', 'LineWidth', 1.8); hold on; yline(P.trated, 'b--', 'rated 5 N m');
+    for k = 1:4, plot(abs(r.lg(:,12+k)), abs(r.lg(:,20+k)), '.', 'Color', wc(k,:), 'MarkerSize', 3); end
+    for i = 1:3, yline(S.tauGrip(i), ':', sprintf('grip %s %.2f', S.muName{i}, S.tauGrip(i)), 'Color', [0.5 0.5 0.5]); end
+    xlabel('wheel speed [rad/s]'); ylabel('wheel torque [N m]'); grid on; title('Torque-speed limit and operating points (four wheels)');
+    legend('motor limit', '', 'w1', 'w2', 'w3', 'w4', 'Location', 'northeast');
+    subplot(2,2,2); for k = 1:4, plot(t, D.I(:,k), 'Color', wc(k,:)); hold on; end
+    yline(P.Irated, 'b--', 'rated 7.8 A'); yline(P.Ipk, 'r--', 'peak 23.4 A'); ylabel('motor current [A]'); grid on; title('Motor current per wheel'); stateBands(gca, r);
+    subplot(2,2,3); plot(t, D.Ptot, 'LineWidth', 1.2); hold on; yline(4*150, 'r--', 'rated 4 x 150 W'); yline(D.Pmean, 'k:', sprintf('mean %.0f W', D.Pmean));
+    ylabel('electrical power [W]'); xlabel('time [s]'); ylim([-100 650]); grid on; title(sprintf('Power from the battery (%.2f Wh used)', D.energyWh)); stateBands(gca, r);
+    subplot(2,2,4); yyaxis left; plot(t, D.Vt, 'LineWidth', 1.4); ylabel('battery terminal voltage [V]'); yyaxis right; plot(t, 100*D.soc, 'LineWidth', 1.4); ylabel('state of charge [%]');
+    xlabel('time [s]'); grid on; title(sprintf('Battery: minimum %.2f V, charge at the end %.2f %%', D.Vmin, 100*D.socEnd));
+    sgtitle('Hub motors and battery (calculated from the logged torques and wheel speeds)'); save_fig(f, '7_motor_battery.png');
+    plotDriveDesign(S, P);
+end
+
+function plotDriveDesign(S, P)
+    % Torque-speed limit of one wheel motor with the hand-calculated design cases (report Fig. 28)
+    f = figure('Name', 'Drive design cases', 'Theme', 'light', 'Color', 'w', 'Position', [170 170 1000 600]); w = linspace(0, P.Vbus/P.kt, 300);
+    plot(w, min(P.tmax, P.kt*(P.Vbus - P.kt*w)/P.Rm), 'k-', 'LineWidth', 2); hold on;
+    plot(w, min(P.tmax, P.kt*max(P.Vempty - P.kt*w, 0)/P.Rm), 'k--');
+    yline(P.trated, 'b--', 'rated 5.0 N m'); cm = [lines(7); 0 0 0]; cm = cm(1:numel(S.cases), :); nm = {};
+    for i = 1:numel(S.cases), plot(S.cases(i).omega, abs(S.cases(i).tau), 'o', 'MarkerFaceColor', cm(i,:), 'MarkerEdgeColor', 'k', 'MarkerSize', 9); nm{i} = S.cases(i).name; end %#ok<AGROW>
+    for i = 1:3, yline(S.tauGrip(i), ':', sprintf('grip, %s: %.2f N m', S.muName{i}, S.tauGrip(i)), 'Color', [0.45 0.45 0.45], 'LabelHorizontalAlignment', 'right'); end
+    xline(S.knee, 'g:', sprintf('knee %.1f rad/s', S.knee), 'LabelVerticalAlignment', 'bottom'); xlabel('wheel speed [rad/s]'); ylabel('wheel torque [N m]'); grid on;
+    legend(['motor limit, 24 V', 'motor limit, 21 V (empty)', {'rated'}, nm], 'Location', 'northeast', 'FontSize', 8);
+    title('Torque-speed limit of one hub motor, design cases and grip limits'); save_fig(f, '8_drive_design_cases.png');
 end
 
 function plotSnapshots(r, P)

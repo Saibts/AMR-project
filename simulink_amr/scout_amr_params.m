@@ -7,7 +7,6 @@ P.r        = 0.085;     % [m]   wheel radius (STL mesh radius)
 P.hubOff   = 0.062;     % [m]   hub centre offset from wheel frame along local +X (URDF)
 P.track    = 0.612;     % [m]   effective track width
 P.yWheel   = [ 0.30  0.30 -0.30 -0.30];   % lateral wheel offsets [w1 FL, w2 RL, w3 FR, w4 RR]
-P.tmax     = 17.5;      % [Nm]  in-hub motor peak torque
 P.p_fb     = [-0.10185; 0.16662; 0.2269]; % base_link origin expressed in base_footprint (URDF)
 P.rRobot   = 0.38;      % [m]   avoidance radius of the robot
 
@@ -21,6 +20,29 @@ for k = 1:4
     aj  = Rfb * Rbw * ax(k,:)';
     P.sgn(k) = sign(aj(2));          % +Y rotation = forward rolling
 end
+
+% --- In-hub motor, battery and load data (same values as the ROS 2 review report; the Scout Mini manual gives only
+%     4 x 150 W brushless hub motors and a 24 V / 15 Ah battery, every other constant is an assumption) ------------
+kt = 0.64;  trated = 5.0;  tmax = 15.0;          % locals: codegen does not allow reading P before all its fields exist
+P.Vbus   = 24;          % [V]     battery voltage (25.2 V full, 21.0 V empty, 6S pack)
+P.Vfull  = 25.2;  P.Vempty = 21.0;
+P.Ah     = 15;          % [Ah]    battery capacity (datasheet)
+P.Rint   = 0.08;        % [Ohm]   battery internal resistance (assumed)
+P.kt     = kt;          % [Nm/A]  torque constant = back-EMF constant Ke (24 V / 37.5 rad/s)
+P.Rm     = 0.60;        % [Ohm]   winding resistance (assumed)
+P.trated = trated;      % [Nm]    rated torque: 150 W at 30 rad/s
+P.Irated = trated/kt;   % [A]     7.8 A
+P.tmax   = tmax;        % [Nm]    peak torque = 3 x rated (driver current limit)
+P.Ipk    = tmax/kt;     % [A]     23.4 A peak current
+P.gear   = 1;  P.eta = 1;       %        direct-drive hub motor: no gearbox
+P.P0     = 12;          % [W]     idle electronics power (assumed)
+P.bJoint = 0.1;         % [Nm s/rad] viscous damping of each wheel joint (URDF <dynamics>, kept by the Simscape import)
+P.Crr    = 0.03;        % [-]     rolling resistance coefficient (assumed)
+P.muT    = 0.35;        % [-]     turning (scrub) friction of the skid-steer base (assumed)
+P.Iz     = 1.4;         % [kg m^2] yaw inertia: chassis 0.65 + 4 wheels at 0.363 m from the centre
+P.wheelBase = 0.391;    % [m]     front-rear wheel distance (URDF)
+P.payload = 12;         % [kg]    design payload for the loaded sizing case
+P.rampDeg = 7.3;        % [deg]   dock ramp of the script simulation: atan(0.45/3.5)
 
 % --- Tyre / ground contact ----------------------------------------------
 P.kc  = 12000;          % [N/m]   vertical contact stiffness per wheel
@@ -63,7 +85,7 @@ P.Ts    = 0.005;        % [s]  control period
 P.vmax  = 1.2;          % [m/s]
 P.amax  = 2.5;          % [m/s^2] nominal acceleration demand
 P.Kp    = 0.3;  P.Ki = 8.0;           % wheel-speed PI (stable for wheel inertia 0.005 kg m^2 at Ts)
-P.mass  = 30;           % [kg] robot mass used for acceleration feed-forward
+P.mass  = 28.3;         % [kg] robot mass (sum of the URDF link masses) used for the acceleration feed-forward
 P.vSlipFloor = 0.8;     % [m/s] speed floor in the slip-ratio denominator (avoids divide-by-zero at standstill)
 P.k_th  = 0.12;         % slip ratio detection threshold
 P.k_tgt = 0.08;         % slip ratio the traction controller regulates to

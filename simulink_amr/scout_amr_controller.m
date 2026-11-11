@@ -49,14 +49,16 @@ kappa = (P.r*wfwd - vk) ./ den;
 slip = any(abs(kappa) > P.k_th);
 
 % ---- Traction management -------------------------------------------------
-tauLim = P.tmax * ones(4,1);
+% motor torque envelope (Eq. 8 of the report): current limit tmax, and above the knee the back-EMF limit Kt (V - Ke w) / R
+tauEnv = scout_amr_motor_limit(wfwd);
+tauLim = tauEnv;
 if tc_on > 0.5
     wgl = vk / P.r;                          % wheel speed that matches the ground
     dW  = (P.k_tgt*abs(vk) + 0.12) / P.r;    % allowed wheel-speed deviation (target slip)
     wc  = max(wgl - dW, min(wgl + dW, wc));  % anti-spin / anti-lock speed window
     for k = 1:4
         s = (abs(kappa(k)) - P.k_th) / (P.k_max - P.k_th);
-        if s > 0, tauLim(k) = P.tmax * max(0.1, 1 - s); end
+        if s > 0, tauLim(k) = tauEnv(k) * max(0.1, 1 - s); end
     end
     if slip, mu_est = max(0.10, mu_est - 0.5*dt); else, mu_est = min(P.mu0, mu_est + 0.15*dt); end
 end
