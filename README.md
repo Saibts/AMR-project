@@ -10,13 +10,20 @@ limit, a battery calculation and a wheel-slip management on oil and water patche
 
 ```matlab
 cd 'D:\academic_shit\SEM5-III\AMR ROS\simulink_amr'
-live_graphs                                  % 3D Multibody Explorer + live graphs (map, speed, slip, clearance, motor current, battery)
+live_graphs                                  % click-to-go: 3D Multibody Explorer + live graphs, click the map to send the robot there
 live_graphs(false)                           % live graphs only, no 3D window
+live_graphs(true, false)                     % scripted pickup-to-delivery mission instead of click-to-go
 run_scout_warehouse_simulation               % run once, then draw all result figures (2 to 3 minutes)
 run_scout_warehouse_simulation(false, true)  % also run with slip management off and compare
 scout_amr_drive_sizing                       % hand calculation of the motor torque for 8 driving cases
 runtests('test_scout_amr_drive')             % six unit tests of the drive model
 ```
+
+In `live_graphs`, click anywhere on the map tile (left) of the graph figure: the robot plans a route (A*, LiDAR avoidance)
+and drives there; clicks inside racks or walls are refused. Slip management is always on, and a bar at the bottom shows
+slip %, wheel against ground speed, traction and the surface under the robot (normal floor, oil, water). The slip zones
+are the blue patches with a yellow border in the 3D world and the shaded "SLIP ZONE" areas on the map. The 3D window
+itself cannot take clicks.
 
 Needs MATLAB, Simulink, Simscape and Simscape Multibody. See `simulink_amr/README.md` for the architecture, the
 files and the results.

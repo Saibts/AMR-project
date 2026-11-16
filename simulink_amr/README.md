@@ -12,7 +12,9 @@ open_system('scout_amr_sim')              % the Simulink / Simscape model (press
 run_scout_warehouse_simulation            % run + all graphs  (add (false) to skip the 3D window)
 run_scout_warehouse_simulation(false,true)% also re-run with slip management OFF and compare (slow)
 build_scout_amr_model                     % rebuild scout_amr_sim.slx from scratch
+live_graphs                               % click-to-go: click the map and the robot drives there (live_graphs(true,false) = scripted mission)
 ```
+Click-to-go works through the `click_goal` constant `[mode x y id]` in `Mission_and_Slip_Controller`: `live_graphs` changes it while the simulation runs, and `scout_wh_nav` plans and drives to the point (states 6 and 7). Mode 0 keeps the scripted pickup-to-delivery mission.
 A full mission takes about 2 to 3 minutes of wall time with slip management on (1 to 2 minutes for the off run). Figures go to `results/`.
 
 Presentation outputs (trajectory map, signals figure, MP4 animation) come from `make_example_style_outputs`. The older script-only visual simulation is `../simulate_industry_amr_warehouse.m` (with `../plan_warehouse_roadmap.m`).
