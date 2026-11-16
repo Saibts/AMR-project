@@ -2,8 +2,9 @@ function [vref, wref, mv, rng, pth, info] = scout_wh_nav(px, py, psi, dt, cg)
 %SCOUT_WH_NAV  Warehouse autonomy: mission state machine, LiDAR perception, A* replanning,
 %  pure-pursuit path following, reactive avoidance and collision monitoring.
 %  Inputs : robot footprint pose (px, py, psi), the control period dt and the click-to-go request
-%           cg = [mode gx gy id]  (mode 0 = scripted pickup/delivery mission, mode 1 = go to the clicked
-%           point (gx, gy); a new id starts a new trip).
+%           cg = [mode gx gy id]  (mode 0 = scripted pickup/delivery mission that stops the run, mode 1 = go to
+%           the clicked point (gx, gy), mode 2 = run the pickup/delivery mission from the current position;
+%           in modes 1 and 2 a new id starts a new trip and the run never stops itself).
 %  States : 1 to PICKUP, 2 loading, 3 to DELIVERY, 4 unloading, 5 done, 6 to clicked goal, 7 waiting for a click.
 %  Outputs: speed / yaw-rate request, mover positions (for the 3D scene), LiDAR ranges,
 %           current path [n; x1 y1; ...] and an info vector (see bottom).
@@ -69,8 +70,13 @@ end
 rng = rngHold;
 
 % ---- mission state machine -----------------------------------------------------------------
-if cg(1) > 0.5 && cg(4) ~= lastId                               % a new click: drive there
-    lastId = cg(4); mgoal = [cg(2) cg(3)]; state = 6; pathN = 0; replanT = 1e9; stuckT = 0;
+if cg(1) > 0.5 && cg(4) ~= lastId                               % a new request from the user
+    lastId = cg(4); pathN = 0; replanT = 1e9; stuckT = 0;
+    if cg(1) > 1.5                                              % mode 2: autonomous pickup and delivery from the current position
+        state = 1; dwellT = 0; done = false;
+    else                                                        % mode 1: drive to the clicked point
+        mgoal = [cg(2) cg(3)]; state = 6;
+    end
 end
 if state == 1 || state == 2, goal = P.pickup; else, goal = P.deliver; end
 if state == 6, goal = mgoal; end
@@ -84,7 +90,7 @@ elseif state == 2 || state == 4
     dwellT = dwellT + dt;
     if dwellT >= P.dwell
         state = state + 1; pathN = 0; replanT = 1e9;
-        if state == 5, done = true; end
+        if state == 5 && cg(1) < 0.5, done = true; end   % only the scripted run stops itself; in interactive mode the robot stays in state 5 until the next request
     end
 end
 

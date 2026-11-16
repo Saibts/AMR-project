@@ -19,6 +19,7 @@ set_param(mdl, 'StopTime', num2str(P.tStop));
 if showExplorer, set_param(mdl, 'SimMechanicsOpenEditorOnUpdate', 'on');
 else,            set_param(mdl, 'SimMechanicsOpenEditorOnUpdate', 'off'); end
 tcBlk = [mdl '/Mission_and_Slip_Controller/tc_on'];
+set_param([mdl '/Mission_and_Slip_Controller/click_goal'], 'Value', '[0 0 0 0]');   % scripted mission (mode 0), never click-to-go
 if ~isfolder('results'), mkdir('results'); end
 
 modes = 1; if compareSlip, modes = [1 0]; end

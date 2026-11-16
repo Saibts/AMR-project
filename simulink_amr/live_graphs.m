@@ -4,7 +4,9 @@ function live_graphs(showExplorer, interactive)
 %    live_graphs(false)       % live graphs only (no 3D window)
 %    live_graphs(true,false)  % scripted pickup-to-delivery mission instead of click-to-go
 %  Click-to-go: click anywhere on the map (left tile of the graph figure); the robot plans a route
-%  (A*, LiDAR avoidance) and drives there. Slip management (traction control) is always active.
+%  (A*, LiDAR avoidance) and drives there. The green button "Autonomous pickup and delivery" runs the
+%  whole mission (pickup, loading, delivery, unloading) from the robot's current position.
+%  Slip management (traction control) is always active.
 %  The live values are read from the output ports of the Controller block (44-value log vector,
 %  mover positions, LiDAR ranges) every 0.1 s of wall time; nothing in the model is changed.
 if nargin < 1, showExplorer = true; end
@@ -17,6 +19,7 @@ load_system(mdl);
 cgBlk = [mdl '/Mission_and_Slip_Controller/click_goal'];
 set_param(mdl, 'StopTime', num2str(P.tStop));
 if interactive, set_param(mdl, 'StopTime', '3600'); set_param(cgBlk, 'Value', '[1 0 0 0]'); else, set_param(cgBlk, 'Value', '[0 0 0 0]'); end
+cleanup = onCleanup(@() resetModel(mdl, cgBlk, P.tStop));   % the saved model must stay in the scripted-mission setting (click_goal mode 0)
 set_param([mdl '/Mission_and_Slip_Controller/tc_on'], 'Value', '1');
 if showExplorer, set_param(mdl, 'SimMechanicsOpenEditorOnUpdate', 'on');
 else,            set_param(mdl, 'SimMechanicsOpenEditorOnUpdate', 'off'); end
@@ -46,6 +49,8 @@ hPth = plot(axM, nan, nan, 'g-', 'LineWidth', 1.8);
 hGoal = plot(axM, nan, nan, 'p', 'MarkerFaceColor', [0.9 0 0.9], 'MarkerEdgeColor', 'k', 'MarkerSize', 16);
 gid = 0; clickMsg = '';
 if interactive
+    uicontrol(f, 'Style', 'pushbutton', 'String', 'Autonomous pickup and delivery', 'Units', 'normalized', 'Position', [0.01 0.90 0.20 0.07], ...
+        'FontSize', 12, 'FontWeight', 'bold', 'BackgroundColor', [0.2 0.65 0.3], 'ForegroundColor', 'w', 'Callback', @onMissionButton);
     f.WindowButtonDownFcn = @onMapClick;
     set(findobj(axM, 'Type', 'patch'), 'HitTest', 'off'); set(findobj(axM, 'Type', 'rectangle'), 'HitTest', 'off');
 end
@@ -66,7 +71,7 @@ hVt = animatedline(axB, 'Color', [0 0.45 0.74], 'LineWidth', 1.4); yline(axB, P.
 axP = nexttile(tl, 9); hold(axP, 'on'); grid(axP, 'on'); ylabel(axP, 'power [W]'); xlabel(axP, 'time [s]'); title(axP, 'Electrical power from the battery (all motors + idle)');
 hPw = animatedline(axP, 'Color', [0.85 0.33 0.1], 'LineWidth', 1.4);
 soc = 1; Ahused = 0; tPrev = 0;
-stNames = {'drive to PICKUP', 'LOADING', 'drive to DELIVERY', 'UNLOADING', 'DONE', 'GOING TO CLICKED POINT', 'READY - click the map'};
+stNames = {'drive to PICKUP', 'LOADING', 'drive to DELIVERY', 'UNLOADING', 'MISSION COMPLETE - click the map or press the button', 'GOING TO CLICKED POINT', 'READY - click the map'};
 
 % ---------------- run the simulation and poll the Controller block ----------------------------------
 set_param(mdl, 'SimulationCommand', 'start');
@@ -123,20 +128,39 @@ while any(strcmp(get_param(mdl, 'SimulationStatus'), {'initializing', 'updating'
     end
 end
 fprintf('Simulation finished (%s). The graphs show the whole run.\n', get_param(mdl, 'SimulationStatus'));
+tw = tic; while ~strcmp(get_param(mdl, 'SimulationStatus'), 'stopped') && toc(tw) < 10, pause(0.05); end   % let a stop request finish
+resetModel(mdl, cgBlk, P.tStop);
 save_system(mdl);
 
-    function onMapClick(~, ~)
-        cp = axM.CurrentPoint(1, 1:2);
-        xl = xlim(axM); yl = ylim(axM);
-        if cp(1) < xl(1) || cp(1) > xl(2) || cp(2) < yl(1) || cp(2) > yl(2), return; end
+    function onMissionButton(~, ~)
         if ~strcmp(get_param(mdl, 'SimulationStatus'), 'running'), return; end
-        m = 0.5;                                              % planner inflation: keep the goal clear of racks and walls
-        bad = false;
-        for q = 1:size(P.racks, 1), r = P.racks(q, :); bad = bad || (cp(1) > r(1)-m && cp(1) < r(2)+m && cp(2) > r(3)-m && cp(2) < r(4)+m); end
-        for q = 1:size(P.walls, 1), r = P.walls(q, :); bad = bad || (cp(1) > r(1)-m && cp(1) < r(2)+m && cp(2) > r(3)-m && cp(2) < r(4)+m); end
-        if bad, clickMsg = '(that point is inside a rack or wall - click in an aisle)'; return; end
         gid = gid + 1; clickMsg = '';
-        set_param(cgBlk, 'Value', sprintf('[1 %.3f %.3f %d]', cp(1), cp(2), gid));
-        set(hGoal, 'XData', cp(1), 'YData', cp(2));
+        set_param(cgBlk, 'Value', sprintf('[2 0 0 %d]', gid));     % mode 2: pickup and delivery from where the robot is
+        set(hGoal, 'XData', nan, 'YData', nan);
+    end
+
+    function onMapClick(~, ~)
+        cpt = axM.CurrentPoint(1, 1:2);
+        xlm = xlim(axM); ylm = ylim(axM);
+        if cpt(1) < xlm(1) || cpt(1) > xlm(2) || cpt(2) < ylm(1) || cpt(2) > ylm(2), return; end
+        if ~strcmp(get_param(mdl, 'SimulationStatus'), 'running'), return; end
+        mrg = 0.5;                                            % planner inflation: keep the goal clear of racks and walls
+        inObst = false;
+        for iq = 1:size(P.racks, 1), rr = P.racks(iq, :); inObst = inObst || (cpt(1) > rr(1)-mrg && cpt(1) < rr(2)+mrg && cpt(2) > rr(3)-mrg && cpt(2) < rr(4)+mrg); end
+        for iq = 1:size(P.walls, 1), rr = P.walls(iq, :); inObst = inObst || (cpt(1) > rr(1)-mrg && cpt(1) < rr(2)+mrg && cpt(2) > rr(3)-mrg && cpt(2) < rr(4)+mrg); end
+        if inObst, clickMsg = '(that point is inside a rack or wall - click in an aisle)'; return; end
+        gid = gid + 1; clickMsg = '';
+        set_param(cgBlk, 'Value', sprintf('[1 %.3f %.3f %d]', cpt(1), cpt(2), gid));
+        set(hGoal, 'XData', cpt(1), 'YData', cpt(2));
+    end
+end
+
+function resetModel(mdl, cgBlk, tStop)
+    try
+        if bdIsLoaded(mdl)
+            if ~any(strcmp(get_param(mdl, 'SimulationStatus'), {'stopped', 'terminating'})), return; end   % never edit a running model
+            set_param(cgBlk, 'Value', '[0 0 0 0]'); set_param(mdl, 'StopTime', num2str(tStop));
+        end
+    catch
     end
 end
