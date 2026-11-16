@@ -1,15 +1,22 @@
-function live_graphs(showExplorer)
-%LIVE_GRAPHS  Runs the warehouse mission and updates the graphs WHILE the simulation runs.
-%    live_graphs          % Multibody Explorer (3D) + live graphs, slip management ON
-%    live_graphs(false)   % live graphs only (no 3D window)
+function live_graphs(showExplorer, interactive)
+%LIVE_GRAPHS  Runs the warehouse simulation and updates the graphs WHILE the simulation runs.
+%    live_graphs              % Multibody Explorer (3D) + live graphs, click-to-go, slip management ON
+%    live_graphs(false)       % live graphs only (no 3D window)
+%    live_graphs(true,false)  % scripted pickup-to-delivery mission instead of click-to-go
+%  Click-to-go: click anywhere on the map (left tile of the graph figure); the robot plans a route
+%  (A*, LiDAR avoidance) and drives there. Slip management (traction control) is always active.
 %  The live values are read from the output ports of the Controller block (44-value log vector,
 %  mover positions, LiDAR ranges) every 0.1 s of wall time; nothing in the model is changed.
 if nargin < 1, showExplorer = true; end
+if nargin < 2, interactive = true; end
 here = fileparts(mfilename('fullpath')); cd(here); addpath(here);
 P = scout_amr_params(); mdl = 'scout_amr_sim';
 if ~isfile([mdl '.slx']), build_scout_amr_model; end
+if bdIsLoaded(mdl), close_system(mdl, 0); end     % always start from the file on disk, not a stale copy in memory
 load_system(mdl);
+cgBlk = [mdl '/Mission_and_Slip_Controller/click_goal'];
 set_param(mdl, 'StopTime', num2str(P.tStop));
+if interactive, set_param(mdl, 'StopTime', '3600'); set_param(cgBlk, 'Value', '[1 0 0 0]'); else, set_param(cgBlk, 'Value', '[0 0 0 0]'); end
 set_param([mdl '/Mission_and_Slip_Controller/tc_on'], 'Value', '1');
 if showExplorer, set_param(mdl, 'SimMechanicsOpenEditorOnUpdate', 'on');
 else,            set_param(mdl, 'SimMechanicsOpenEditorOnUpdate', 'off'); end
@@ -18,10 +25,17 @@ blk = [mdl '/Mission_and_Slip_Controller/Controller'];
 % ---------------- figure: map + three signal panels --------------------------------------------
 f = figure('Name', 'Live mission', 'Theme', 'light', 'Color', 'w', 'Position', [20 40 1800 760]);
 tl = tiledlayout(f, 3, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
+tl.OuterPosition = [0 0.07 1 0.93];
+hMon = annotation(f, 'textbox', [0.005 0.005 0.99 0.06], 'String', 'Wheel slip monitor', 'FontSize', 13, 'FontWeight', 'bold', ...
+    'VerticalAlignment', 'middle', 'BackgroundColor', [0.85 0.95 0.85], 'EdgeColor', [0.3 0.6 0.3]);
 axM = nexttile(tl, 1, [3 1]); hold(axM, 'on'); axis(axM, 'equal'); grid(axM, 'on');
 for k = 1:size(P.racks, 1), r = P.racks(k, :); rectangle(axM, 'Position', [r(1) r(3) r(2)-r(1) r(4)-r(3)], 'FaceColor', [0.62 0.69 0.87], 'EdgeColor', [0.2 0.3 0.6]); end
 for k = 1:size(P.boxes, 1), r = P.boxes(k, :); rectangle(axM, 'Position', [r(1) r(3) r(2)-r(1) r(4)-r(3)], 'FaceColor', [0.85 0.58 0.25]); end
-for k = 1:size(P.patches, 1), r = P.patches(k, :); rectangle(axM, 'Position', [r(1) r(3) r(2)-r(1) r(4)-r(3)], 'FaceColor', [0.82 0.90 1.0], 'EdgeColor', [0.4 0.6 0.9], 'LineStyle', ':'); end
+for k = 1:size(P.patches, 1)
+    r = P.patches(k, :);
+    patch(axM, r([1 2 2 1]), r([3 3 4 4]), [0.05 0.35 1.0], 'FaceAlpha', 0.35, 'EdgeColor', [0.05 0.35 1.0], 'LineWidth', 1.8, 'LineStyle', '--');
+    text(axM, (r(1)+r(2))/2, (r(3)+r(4))/2, sprintf('SLIP ZONE\n\\mu = %.2f', r(5)), 'HorizontalAlignment', 'center', 'FontWeight', 'bold', 'Color', [0 0.2 0.7]);
+end
 plot(axM, P.pickup(1), P.pickup(2), 'gs', 'MarkerFaceColor', 'g', 'MarkerSize', 9); text(axM, P.pickup(1), P.pickup(2)+0.7, 'PICKUP', 'FontWeight', 'bold');
 plot(axM, P.deliver(1), P.deliver(2), 'rs', 'MarkerFaceColor', 'r', 'MarkerSize', 9); text(axM, P.deliver(1)-2.5, P.deliver(2)+0.7, 'DELIVERY', 'FontWeight', 'bold');
 hLid = plot(axM, nan, nan, '.', 'Color', [0.9 0.2 0.2], 'MarkerSize', 6);
@@ -29,6 +43,12 @@ hTrk = plot(axM, nan, nan, 'b-', 'LineWidth', 2);
 hRob = plot(axM, nan, nan, 'bo', 'MarkerFaceColor', 'b', 'MarkerSize', 9);
 hMv  = plot(axM, nan(4, 1), nan(4, 1), 'o', 'MarkerFaceColor', [0.95 0.75 0.1], 'MarkerEdgeColor', 'k', 'MarkerSize', 9);
 hPth = plot(axM, nan, nan, 'g-', 'LineWidth', 1.8);
+hGoal = plot(axM, nan, nan, 'p', 'MarkerFaceColor', [0.9 0 0.9], 'MarkerEdgeColor', 'k', 'MarkerSize', 16);
+gid = 0; clickMsg = '';
+if interactive
+    f.WindowButtonDownFcn = @onMapClick;
+    set(findobj(axM, 'Type', 'patch'), 'HitTest', 'off'); set(findobj(axM, 'Type', 'rectangle'), 'HitTest', 'off');
+end
 xlim(axM, [-2.5 28.5]); ylim(axM, [-2.2 12]); xlabel(axM, 'x [m]'); ylabel(axM, 'y [m]'); hT = title(axM, 'Live mission');
 
 axV = nexttile(tl, 2); hold(axV, 'on'); grid(axV, 'on'); ylabel(axV, 'speed [m/s]'); title(axV, 'Forward speed');
@@ -46,12 +66,13 @@ hVt = animatedline(axB, 'Color', [0 0.45 0.74], 'LineWidth', 1.4); yline(axB, P.
 axP = nexttile(tl, 9); hold(axP, 'on'); grid(axP, 'on'); ylabel(axP, 'power [W]'); xlabel(axP, 'time [s]'); title(axP, 'Electrical power from the battery (all motors + idle)');
 hPw = animatedline(axP, 'Color', [0.85 0.33 0.1], 'LineWidth', 1.4);
 soc = 1; Ahused = 0; tPrev = 0;
-stNames = {'drive to PICKUP', 'LOADING', 'drive to DELIVERY', 'UNLOADING', 'DONE'};
+stNames = {'drive to PICKUP', 'LOADING', 'drive to DELIVERY', 'UNLOADING', 'DONE', 'GOING TO CLICKED POINT', 'READY - click the map'};
 
 % ---------------- run the simulation and poll the Controller block ----------------------------------
 set_param(mdl, 'SimulationCommand', 'start');
 trk = zeros(0, 2); lastT = -1; wall = tic;
 while any(strcmp(get_param(mdl, 'SimulationStatus'), {'initializing', 'updating', 'running'}))
+    if ~isvalid(f), set_param(mdl, 'SimulationCommand', 'stop'); break; end      % closing the figure ends the run
     if strcmp(get_param(mdl, 'SimulationStatus'), 'running') && toc(wall) > 0.1
         wall = tic;
         try
@@ -75,7 +96,22 @@ while any(strcmp(get_param(mdl, 'SimulationStatus'), {'initializing', 'updating'
                 set(hTrk, 'XData', trk(:, 1), 'YData', trk(:, 2)); set(hRob, 'XData', lg(1), 'YData', lg(2));
                 set(hMv, 'XData', mv(1:2:end), 'YData', mv(2:2:end));
                 n = round(pth(1)); if n > 0, pp = reshape(pth(2:end), 2, []).'; set(hPth, 'XData', pp(1:n, 1), 'YData', pp(1:n, 2)); else, set(hPth, 'XData', nan, 'YData', nan); end
-                set(hT, 'String', sprintf('t = %.1f s   %s   speed %.2f m/s   route corrections %d   collisions %d', t, stNames{max(1, min(5, round(lg(31))))}, lg(4), round(lg(38)), round(lg(41))));
+                set(hT, 'String', sprintf('t = %.1f s   %s   speed %.2f m/s   route corrections %d   collisions %d  %s', t, stNames{max(1, min(7, round(lg(31))))}, lg(4), round(lg(38)), round(lg(41)), clickMsg));
+                % wheel slip monitor: slip %, wheel vs ground speed, traction (friction estimate), surface under the robot
+                surf = 'normal floor';
+                for q = 1:size(P.patches, 1)
+                    r = P.patches(q, :);
+                    if lg(1) >= r(1) && lg(1) <= r(2) && lg(2) >= r(3) && lg(2) <= r(4)
+                        if r(5) < 0.2, surf = sprintf('OIL (mu %.2f)', r(5)); else, surf = sprintf('WATER (mu %.2f)', r(5)); end
+                    end
+                end
+                if lg(30) > 0.5
+                    txt = 'SLIP - torque and acceleration limited'; bg = [1 0.85 0.8]; ec = [0.8 0.2 0.1];
+                else
+                    txt = 'GRIP OK'; bg = [0.85 0.95 0.85]; ec = [0.3 0.6 0.3];
+                end
+                set(hMon, 'String', sprintf('Wheel slip monitor:  %s   |   slip %.0f %%   |   wheel %+.2f  ground %+.2f m/s   |   traction %.0f %%   |   surface: %s', ...
+                    txt, 100 * max(abs(lg(17:20))), P.r * mean(lg(13:16)), lg(4), 100 * lg(29) / P.mu0, surf), 'BackgroundColor', bg, 'EdgeColor', ec);
                 for ax = [axV axS axC axI axB axP], xlim(ax, [0 max(10, t + 1)]); end
                 drawnow limitrate;
             end
@@ -88,4 +124,19 @@ while any(strcmp(get_param(mdl, 'SimulationStatus'), {'initializing', 'updating'
 end
 fprintf('Simulation finished (%s). The graphs show the whole run.\n', get_param(mdl, 'SimulationStatus'));
 save_system(mdl);
+
+    function onMapClick(~, ~)
+        cp = axM.CurrentPoint(1, 1:2);
+        xl = xlim(axM); yl = ylim(axM);
+        if cp(1) < xl(1) || cp(1) > xl(2) || cp(2) < yl(1) || cp(2) > yl(2), return; end
+        if ~strcmp(get_param(mdl, 'SimulationStatus'), 'running'), return; end
+        m = 0.5;                                              % planner inflation: keep the goal clear of racks and walls
+        bad = false;
+        for q = 1:size(P.racks, 1), r = P.racks(q, :); bad = bad || (cp(1) > r(1)-m && cp(1) < r(2)+m && cp(2) > r(3)-m && cp(2) < r(4)+m); end
+        for q = 1:size(P.walls, 1), r = P.walls(q, :); bad = bad || (cp(1) > r(1)-m && cp(1) < r(2)+m && cp(2) > r(3)-m && cp(2) < r(4)+m); end
+        if bad, clickMsg = '(that point is inside a rack or wall - click in an aisle)'; return; end
+        gid = gid + 1; clickMsg = '';
+        set_param(cgBlk, 'Value', sprintf('[1 %.3f %.3f %d]', cp(1), cp(2), gid));
+        set(hGoal, 'XData', cp(1), 'YData', cp(2));
+    end
 end

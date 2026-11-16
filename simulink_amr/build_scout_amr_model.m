@@ -67,10 +67,12 @@ tcC = add_block('simulink/Sources/Constant', [mdl '/tc_on'], 'Value', '1');   % 
 zp = addZOH(mdl, 'zoh_p', cs.p, P.Ts);  zR = addZOH(mdl, 'zoh_R', cs.R, P.Ts);
 zv = addZOH(mdl, 'zoh_v', cs.v, P.Ts);  zw = addZOH(mdl, 'zoh_w', cs.w, P.Ts);
 zj = addZOH(mdl, 'zoh_wj', wjMux, P.Ts);
-ctl = addMF(mdl, 'Controller', ['function [tau_j, lg, mv, rng, pth] = fcn(pb, Rb, vb, wb, wj, tc_on)' newline ...
-    '[tau_j, lg, mv, rng, pth] = scout_amr_controller(pb, Rb, vb, wb, wj, tc_on);' newline 'end']);
+cgC = add_block('simulink/Sources/Constant', [mdl '/click_goal'], 'Value', '[0 0 0 0]');   % [mode x y id]: set by live_graphs when the map is clicked (mode 0 = scripted mission)
+set_param(mdl, 'DefaultParameterBehavior', 'Tunable');                                     % lets live_graphs change click_goal while the simulation runs
+ctl = addMF(mdl, 'Controller', ['function [tau_j, lg, mv, rng, pth] = fcn(pb, Rb, vb, wb, wj, tc_on, cg)' newline ...
+    '[tau_j, lg, mv, rng, pth] = scout_amr_controller(pb, Rb, vb, wb, wj, tc_on, cg);' newline 'end']);
 sl(mdl, zp, 1, ctl, 1); sl(mdl, zR, 1, ctl, 2); sl(mdl, zv, 1, ctl, 3);
-sl(mdl, zw, 1, ctl, 4); sl(mdl, zj, 1, ctl, 5); sl(mdl, tcC, 1, ctl, 6);
+sl(mdl, zw, 1, ctl, 4); sl(mdl, zj, 1, ctl, 5); sl(mdl, tcC, 1, ctl, 6); sl(mdl, cgC, 1, ctl, 7);
 
 dmx = add_block('simulink/Signal Routing/Demux', [mdl '/tau_demux'], 'Outputs', '4');
 sl(mdl, ctl, 1, dmx, 1);
@@ -128,8 +130,11 @@ setappdata(0, 'scout_env_names', {});
 addVisual(mdl, world, 'Floor', 'Brick', [34 17 0.02], [12.5 4.9 -0.01], [0.72 0.72 0.74]);
 for i = 1:size(P.patches,1)
     q = P.patches(i,:);
-    addVisual(mdl, world, sprintf('LowMuPatch%d', i), 'Brick', [q(2)-q(1) q(4)-q(3) 0.012], ...
-        [(q(1)+q(2))/2 (q(3)+q(4))/2 0.001], [0.25 0.55 0.90]);
+    % hazard-yellow frame (0.25 m wider each side) under a vivid blue slip zone, so the zone reads clearly on the floor
+    addVisual(mdl, world, sprintf('LowMuFrame%d', i), 'Brick', [q(2)-q(1)+0.5 q(4)-q(3)+0.5 0.016], ...
+        [(q(1)+q(2))/2 (q(3)+q(4))/2 0.002], [0.98 0.80 0.05]);
+    addVisual(mdl, world, sprintf('LowMuPatch%d', i), 'Brick', [q(2)-q(1) q(4)-q(3) 0.024], ...
+        [(q(1)+q(2))/2 (q(3)+q(4))/2 0.004], [0.05 0.35 1.00]);
 end
 addVisual(mdl, world, 'PickupPad',   'Brick', [1.6 1.6 0.014], [P.pickup(1)  P.pickup(2)  0.002], [0.15 0.70 0.30]);
 addVisual(mdl, world, 'DeliveryPad', 'Brick', [1.6 1.6 0.014], [P.deliver(1) P.deliver(2) 0.002], [0.85 0.25 0.20]);
@@ -201,7 +206,7 @@ end
 
 %% 9. Structure the diagram: signals travel by Goto/From tags, blocks are grouped into subsystems
 tagSignals(mdl);
-grp(mdl, 'Floor_and_Stations', '^(Floor|LowMuPatch\d|PickupPad|DeliveryPad|StartPad)(_tf)?$');
+grp(mdl, 'Floor_and_Stations', '^(Floor|LowMuFrame\d|LowMuPatch\d|PickupPad|DeliveryPad|StartPad)(_tf)?$');
 grp(mdl, 'Storage_Racks',      '^Rack\d+(_goods\d)?(_tf)?$');
 grp(mdl, 'Walls',              '^Wall\d(_tf)?$');
 grp(mdl, 'Floor_Boxes',        '^FloorBox\d(_tf)?$');
@@ -209,7 +214,7 @@ grp(mdl, 'Warehouse',          '^(Floor_and_Stations|Storage_Racks|Walls|Floor_B
 mvSub = {'Worker1', 'Worker_1'; 'Worker2', 'Worker_2'; 'SecondAMR', 'Second_AMR'; 'PalletTruck', 'Pallet_Truck'};
 for k = 1:4, grp(mdl, mvSub{k,2}, ['^' mvSub{k,1} '(_\w+)?$']); end
 grp(mdl, 'Moving_Obstacles', '^(Worker_1|Worker_2|Second_AMR|Pallet_Truck|mover_demux)$');
-grp(mdl, 'Mission_and_Slip_Controller', '^(tc_on|zoh_\w+|Controller|ctrl_log|lidar_log|path_log|mover_log|mover_delay|done_sel|stop_when_done)$');
+grp(mdl, 'Mission_and_Slip_Controller', '^(tc_on|click_goal|zoh_\w+|Controller|ctrl_log|lidar_log|path_log|mover_log|mover_delay|done_sel|stop_when_done)$');
 grp(mdl, 'Tyre_Ground_Contact_Model',   '^(Tire\d|F\d_sel|T\d_sel|tire_mux|tire_log)$');
 grp(mdl, 'Sensors', '^(w\d|base)_(xyz|vel|R|omg)(_ps2sl)?$');
 grp(mdl, 'Wheel_Drives_and_Forces', '^(tau\d_sl2ps|wj\d_ps2sl|F\d_sl2ps|T\d_sl2ps|WheelWrench\d)$');

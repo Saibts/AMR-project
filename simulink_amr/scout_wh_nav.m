@@ -1,15 +1,19 @@
-function [vref, wref, mv, rng, pth, info] = scout_wh_nav(px, py, psi, dt)
+function [vref, wref, mv, rng, pth, info] = scout_wh_nav(px, py, psi, dt, cg)
 %SCOUT_WH_NAV  Warehouse autonomy: mission state machine, LiDAR perception, A* replanning,
 %  pure-pursuit path following, reactive avoidance and collision monitoring.
-%  Inputs : robot footprint pose (px, py, psi) and the control period dt.
+%  Inputs : robot footprint pose (px, py, psi), the control period dt and the click-to-go request
+%           cg = [mode gx gy id]  (mode 0 = scripted pickup/delivery mission, mode 1 = go to the clicked
+%           point (gx, gy); a new id starts a new trip).
+%  States : 1 to PICKUP, 2 loading, 3 to DELIVERY, 4 unloading, 5 done, 6 to clicked goal, 7 waiting for a click.
 %  Outputs: speed / yaw-rate request, mover positions (for the 3D scene), LiDAR ranges,
 %           current path [n; x1 y1; ...] and an info vector (see bottom).
 P = scout_amr_params(); G = P.grid;
 persistent init t tTrig staticBlk dynT path pathN replanT nReroute state dwellT done ...
-           rngHold lidarT stuckT collCount inColl lastRerouteT
+           rngHold lidarT stuckT collCount inColl lastRerouteT mgoal lastId
 if isempty(init)
     init = true; t = 0; tTrig = -1; dynT = -inf(G.nx, G.ny); path = zeros(80, 2); pathN = 0;
-    replanT = 1e9; nReroute = 0; state = 1; dwellT = 0; done = false;
+    replanT = 1e9; nReroute = 0; state = 1; dwellT = 0; done = false; mgoal = [0 0]; lastId = 0;
+    if cg(1) > 0.5, state = 7; end
     rngHold = P.lidar.rmax * ones(P.lidar.n, 1); lidarT = 1e9; stuckT = 0; collCount = 0; inColl = false; lastRerouteT = -10;
     [r0, ~, ~] = scout_wh_world(0, -1, -100, -100, 0);
     staticBlk = false(G.nx, G.ny);
@@ -65,11 +69,17 @@ end
 rng = rngHold;
 
 % ---- mission state machine -----------------------------------------------------------------
+if cg(1) > 0.5 && cg(4) ~= lastId                               % a new click: drive there
+    lastId = cg(4); mgoal = [cg(2) cg(3)]; state = 6; pathN = 0; replanT = 1e9; stuckT = 0;
+end
 if state == 1 || state == 2, goal = P.pickup; else, goal = P.deliver; end
-if state == 5, goal = [px py]; end
+if state == 6, goal = mgoal; end
+if state == 5 || state == 7, goal = [px py]; end
 gd = hypot(goal(1) - px, goal(2) - py);
 if (state == 1 || state == 3) && gd < 0.40
     state = state + 1; dwellT = 0; pathN = 0;
+elseif state == 6 && gd < 0.30
+    state = 7; pathN = 0;
 elseif state == 2 || state == 4
     dwellT = dwellT + dt;
     if dwellT >= P.dwell
@@ -79,7 +89,7 @@ elseif state == 2 || state == 4
 end
 
 vref = 0; wref = 0; rf = P.lidar.rmax; rb = P.lidar.rmax; stuck = false;
-if state == 1 || state == 3
+if state == 1 || state == 3 || state == 6
     % ---- (re)planning ------------------------------------------------------------------------
     replanT = replanT + dt;
     wasBlocked = false;
@@ -143,7 +153,7 @@ if state == 1 || state == 3
         if abs(err) > 1.2 && rf >= 0.55, wref = sign(err) * 1.0; end   % turn in place
     end
 end
-if vref < 0.05 && (state == 1 || state == 3), stuckT = stuckT + dt; else, stuckT = 0; end
+if vref < 0.05 && (state == 1 || state == 3 || state == 6), stuckT = stuckT + dt; else, stuckT = 0; end
 stuck = stuckT > 3;
 if stuck, replanT = 1e9; end
 

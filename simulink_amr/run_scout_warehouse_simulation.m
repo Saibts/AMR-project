@@ -63,7 +63,8 @@ function drawMap(ax, P)
     hold(ax, 'on'); axis(ax, 'equal'); grid(ax, 'on'); xlim(ax, [-2.7 28.7]); ylim(ax, [-2.4 12.2]);
     for i = 1:size(P.patches,1)
         q = P.patches(i,:);
-        rectangle(ax, 'Position', [q(1) q(3) q(2)-q(1) q(4)-q(3)], 'FaceColor', [0.82 0.91 1.0], 'EdgeColor', [0.4 0.65 0.95], 'LineStyle', ':');
+        patch(ax, q([1 2 2 1]), q([3 3 4 4]), [0.05 0.35 1.0], 'FaceAlpha', 0.35, 'EdgeColor', [0.05 0.35 1.0], 'LineWidth', 1.8, 'LineStyle', '--');
+        text(ax, (q(1)+q(2))/2, (q(3)+q(4))/2, sprintf('SLIP ZONE\n\\mu = %.2f', q(5)), 'HorizontalAlignment', 'center', 'FontWeight', 'bold', 'Color', [0 0.2 0.7]);
     end
     for i = 1:size(P.racks,1)
         q = P.racks(i,:); rectangle(ax, 'Position', [q(1) q(3) q(2)-q(1) q(4)-q(3)], 'FaceColor', [0.62 0.70 0.86], 'EdgeColor', [0.25 0.35 0.6]);

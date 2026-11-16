@@ -1,8 +1,9 @@
-function [tau_j, lg, mv, rng, pth] = scout_amr_controller(pb, Rb, vb, wb, wj, tc_on)
+function [tau_j, lg, mv, rng, pth] = scout_amr_controller(pb, Rb, vb, wb, wj, tc_on, cg)
 %SCOUT_AMR_CONTROLLER  Mission navigation, wheel-speed control and traction (slip) management.
 %  pb,Rb,vb,wb : base_link pose / velocity from the multibody model (world frame)
 %  wj          : joint speeds of the four wheel revolute joints [rad/s]
 %  tc_on       : 1 = slip management active, 0 = plain wheel-speed PI (for comparison)
+%  cg          : click-to-go request [mode gx gy id]; mode 0 = scripted mission (see scout_wh_nav)
 P = scout_amr_params();
 dt = P.Ts;
 persistent init vc_prev wc_prev I mu_est vx_prev ax_f slipTimer
@@ -21,7 +22,7 @@ vx  = vf(1:2).' * ef;  vy = vf(1:2).' * el;  wz = wb(3);
 pos = pf(1:2);
 
 % ---- Warehouse autonomy: mission, LiDAR, A* replanning, path following ------------------
-[vref, wref, mv, rng, pth, info] = scout_wh_nav(pos(1), pos(2), psi, dt);
+[vref, wref, mv, rng, pth, info] = scout_wh_nav(pos(1), pos(2), psi, dt, cg(:).');
 mv = reshape(mv.', 8, 1);          % [x1; y1; x2; y2; ...] for the 3D movers
 done = info(9) > 0.5;
 err = 0;
